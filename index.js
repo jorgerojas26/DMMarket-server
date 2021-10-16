@@ -10,6 +10,7 @@ const MONTHS = {
   Abril: 'Abril',
   Mayo: 'Mayo',
   Junio: 'Junio',
+  Julio: 'Julio',
   Agosto: 'Agosto',
   Septiembre: 'Septiembre',
   Octubre: 'Octubre',
@@ -38,7 +39,8 @@ app.use('/api/reports/invoice', async (req, res) => {
       'productos.Descripcion as product',
       knex.raw('ROUND(SUM(slavefact.Cantidad), 3) as quantity'),
       knex.raw('ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as rawProfit'),
-      knex.raw('ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit')
+      knex.raw('ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit'),
+      knex.raw('ROUND(AVG((slavefact.Precio - slavefact.Costo) / slavefact.Precio * 100), 2) as averageProfitPercent')
     )
     .from('slavefact')
     .innerJoin('masterfact', function () {
@@ -83,7 +85,7 @@ app.use('/api/reports/invoice', async (req, res) => {
   res.status(200).json(response);
 });
 
-app.use('/api/reports/products/buy-price-fluctuation/:productId', async (req, res) => {
+app.use('/api/reports/products/cost-fluctuation/:productId', async (req, res) => {
   const { productId } = req.params;
 
   let response = await knex
@@ -121,7 +123,8 @@ app.use('/api/reports/products/buy-price-fluctuation/:productId', async (req, re
       this.on('mastercomp.idFactura', 'slavecomp.idFactura').andOn('mastercomp.Anulada', 0);
     })
     .where(knex.raw('YEAR(mastercomp.Fecha)'), knex.raw('YEAR(CURDATE())'))
-    .andWhere('slavecomp.idProducto', productId.toString());
+    .andWhere('slavecomp.idProducto', productId.toString())
+    .groupBy('slavecomp.idProducto');
 
   response = response.reduce(
     (acc, current) => ({
@@ -131,6 +134,30 @@ app.use('/api/reports/products/buy-price-fluctuation/:productId', async (req, re
     {}
   );
   res.status(200).json(response);
+});
+
+app.use('/api/reports/products/stock/:groupId', async (req, res) => {
+  try {
+    const response = await knex.select('productos.Descripcion', 'productos.Price').from('productos').where('productos.Grupo', groupId);
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error(error);
+  }
+});
+
+app.use('/api/products/price-list/:groupId', async (req, res) => {
+  const { groupId } = req.params;
+
+  try {
+    const response = await knex
+      .select('Descripcion as product', 'PrecioA as price', knex.raw('ROUND(Existencia, 2) as stock'))
+      .from('productos')
+      .where('productos.Grupo', groupId);
+    res.status(200).json(response);
+  } catch (error) {
+    console.error(error);
+  }
 });
 
 app.use('/api/products', async (req, res) => {
@@ -152,6 +179,15 @@ app.use('/api/products', async (req, res) => {
     } catch (error) {
       console.log(error);
     }
+  }
+});
+
+app.use('/api/groups', async (req, res) => {
+  try {
+    const response = await knex.select('IdGrupo as groupId', 'Descripcion as name').from('grupos');
+    res.status(200).json(response);
+  } catch (error) {
+    console.error(error);
   }
 });
 
