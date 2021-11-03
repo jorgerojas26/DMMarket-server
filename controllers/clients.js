@@ -38,7 +38,7 @@ const GET_BEST_CLIENTS = async (req, res) => {
       .select(
         "clientes.Empresa as client",
         database.raw(
-          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad * slavefact.Cantidad), 2) as total_USD"
+          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as total_USD"
         )
       )
       .from("slavefact")
