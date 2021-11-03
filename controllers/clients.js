@@ -69,10 +69,10 @@ const GET_BEST_CLIENTS_PER_PRODUCT = async (req, res) => {
         "clientes.Empresa as client",
         database.raw("ROUND(SUM(slavefact.Cantidad), 2) as quantity_total"),
         database.raw(
-          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad * slavefact.Cantidad), 2) as total_USD"
+          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as total_USD"
         ),
         database.raw(
-          "ROUND(SUM((slavefact.Precio * slavefact.Cantidad - slavefact.Costo) * slavefact.Cantidad), 2) as utilidad"
+          "ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as utilidad"
         )
       )
       .from("slavefact")
