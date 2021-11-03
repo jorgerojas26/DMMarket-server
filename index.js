@@ -1,230 +1,26 @@
-require('dotenv').config();
-const express = require('express');
-const path = require('path');
+require("dotenv").config();
+const express = require("express");
+const path = require("path");
 const app = express();
 
-const MONTHS = {
-  Enero: 'Enero',
-  Febrero: 'Febrero',
-  Marzo: 'Marzo',
-  Abril: 'Abril',
-  Mayo: 'Mayo',
-  Junio: 'Junio',
-  Julio: 'Julio',
-  Agosto: 'Agosto',
-  Septiembre: 'Septiembre',
-  Octubre: 'Octubre',
-  Noviembre: 'Noviembre',
-  Diciembre: 'Diciembre',
-};
+const clients_routes = require("./routes/clients");
+const groups_routes = require("./routes/groups");
+const invoices_routes = require("./routes/invoices");
+const products_routes = require("./routes/products");
 
-const knex = require('knex')({
-  client: 'mysql2',
-  connection: {
-    host: process.env.DATABASE_HOST,
-    port: process.env.DATABASE_PORT,
-    user: process.env.DATABASE_USER,
-    password: process.env.DATABASE_PASSWORD,
-    database: process.env.DATABASE_NAME,
-  },
-});
+//app.use(express.static(path.join(__dirname, "public")));
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use("/api/clients", clients_routes);
+app.use("/api/groups", groups_routes);
+app.use("/api/invoices", invoices_routes);
+app.use("/api/products", products_routes);
 
-app.use('/api/reports/invoice', async (req, res) => {
-  const { from, to } = req.query;
+app.use(express.static(path.join(__dirname, "client/build")));
 
-  const sale_report = await knex
-    .select(
-      'productos.Descripcion as product',
-      knex.raw('ROUND(SUM(slavefact.Cantidad), 3) as quantity'),
-      knex.raw('ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as rawProfit'),
-      knex.raw('ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit'),
-      knex.raw('ROUND(AVG((slavefact.Precio - slavefact.Costo) / slavefact.Precio * 100), 2) as averageProfitPercent')
-    )
-    .from('slavefact')
-    .innerJoin('masterfact', function () {
-      this.on('masterfact.IdFactura', 'slavefact.IdFactura').andOn('masterfact.Anulada', 0);
-    })
-    .innerJoin('productos', 'productos.IdProducto', 'slavefact.IdProducto')
-    .whereBetween('masterfact.Fecha', [from, to])
-    .groupBy('productos.IdProducto');
-
-  const categories_report = await knex
-    .select(
-      'grupos.Descripcion as categoria',
-      knex.raw('ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as rawProfit'),
-      knex.raw('ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit')
-    )
-    .from('slavefact')
-    .innerJoin('masterfact', function () {
-      this.on('masterfact.IdFactura', 'slavefact.IdFactura').andOn('masterfact.Anulada', 0);
-    })
-    .innerJoin('productos', 'productos.IdProducto', 'slavefact.IdProducto')
-    .innerJoin('grupos', 'grupos.idGrupo', 'productos.Grupo')
-    .whereBetween('masterfact.Fecha', [from, to])
-    .groupBy('grupos.idGrupo');
-
-  const client_report = await knex
-    .select('clientes.Empresa as client', knex.raw('ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as total_USD'))
-    .from('slavefact')
-    .innerJoin('masterfact', function () {
-      this.on('masterfact.IdFactura', 'slavefact.IdFactura').andOn('masterfact.Anulada', 0);
-    })
-    .innerJoin('clientes', 'clientes.IdCliente', 'masterfact.IdCliente')
-    .whereBetween('masterfact.Fecha', [from, to])
-    .groupBy('clientes.IdCliente')
-    .orderBy('total_USD', 'desc');
-
-  const response = {
-    sale_report,
-    categories_report,
-    client_report,
-  };
-
-  res.status(200).json(response);
-});
-
-app.use('/api/reports/products/cost-fluctuation/:productId', async (req, res) => {
-  const { productId } = req.params;
-
-  let response = await knex
-    .select(
-      knex.raw(`
-          slavecomp.Descripcion,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 1, slavecomp.Precio, NULL)), 2)  AS Enero,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 1, slavecomp.IdFactura, NULL))  AS Enero_transactions,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 2, slavecomp.Precio, NULL)), 2)  AS Febrero,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 2, slavecomp.IdFactura, NULL))  AS Febrero_transactions,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 3, slavecomp.Precio, NULL)), 2)  AS Marzo,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 3, slavecomp.IdFactura, NULL))  AS Marzo_transactions,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 4, slavecomp.Precio, NULL)), 2)  AS Abril,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 4, slavecomp.IdFactura, NULL))  AS Abril_transactions,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 5, slavecomp.Precio, NULL)), 2)  AS Mayo,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 5, slavecomp.IdFactura, NULL))  AS Mayo_transactions,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 6, slavecomp.Precio, NULL)), 2)  AS Junio,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 6, slavecomp.IdFactura, NULL))  AS Junio_transactions,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 7, slavecomp.Precio, NULL)), 2)  AS Julio,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 7, slavecomp.IdFactura, NULL))  AS Julio_transactions,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 8, slavecomp.Precio, NULL)), 2)  AS Agosto,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 8, slavecomp.IdFactura, NULL))  AS Agosto_transactions,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 9, slavecomp.Precio, NULL)), 2) AS Septiembre,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 9, slavecomp.IdFactura, NULL))  AS Septiembre_transactions,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 10, slavecomp.Precio, NULL)), 2) AS Octubre,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 10, slavecomp.IdFactura, NULL))  AS Octubre_transactions,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 11, slavecomp.Precio, NULL)), 2) AS Noviembre,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 11, slavecomp.IdFactura, NULL))  AS Noviembre_transactions,
-       ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 12, slavecomp.Precio, NULL)), 2) AS Diciembre,
-       COUNT(IF(MONTH(mastercomp.Fecha) = 12, slavecomp.IdFactura, NULL))  AS Diciembre_transactions
-            `)
-    )
-    .from('slavecomp')
-    .innerJoin('mastercomp', function () {
-      this.on('mastercomp.IdFactura', 'slavecomp.IdFactura').andOn('mastercomp.Anulada', 0);
-    })
-    .where(knex.raw('YEAR(mastercomp.Fecha)'), knex.raw('YEAR(CURDATE())'))
-    .andWhere('slavecomp.IdProducto', productId.toString())
-    .groupBy('slavecomp.IdProducto');
-
-  response = response.reduce(
-    (acc, current) => ({
-      id: current.Descripcion,
-      data: Object.keys(MONTHS).map((month) => ({ x: month, y: current[month] }), []),
-    }),
-    {}
-  );
-  res.status(200).json(response);
-});
-
-app.use('/api/reports/products/stock/:groupId', async (req, res) => {
-  try {
-    const response = await knex.select('productos.Descripcion', 'productos.Price').from('productos').where('productos.Grupo', groupId);
-
-    res.status(200).json(response);
-  } catch (error) {
-    console.error(error);
-  }
-});
-
-app.use('/api/reports/products/best-clients/:productId', async (req, res) => {
-  const { productId } = req.params;
-  const { from, to } = req.query;
-
-  try {
-    const response = await knex
-      .select(
-        'clientes.Empresa as client',
-        knex.raw('ROUND(SUM(slavefact.Cantidad), 2) as quantity_total'),
-        knex.raw('ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as total_USD'),
-        knex.raw('ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as utilidad')
-      )
-      .from('slavefact')
-      .innerJoin('masterfact', function () {
-        this.on('masterfact.IdFactura', 'slavefact.IdFactura').andOn('masterfact.Anulada', 0);
-      })
-      .innerJoin('clientes', 'clientes.IdCliente', 'masterfact.IdCliente')
-      .whereBetween('masterfact.Fecha', [from, to])
-      .andWhere('slavefact.IdProducto', productId)
-      .groupBy('clientes.IdCliente')
-      .orderBy('total_USD', 'desc');
-
-    res.status(200).json(response);
-  } catch (error) {
-    console.error(error);
-  }
-});
-
-app.use('/api/products/price-list/:groupId', async (req, res) => {
-  const { groupId } = req.params;
-
-  try {
-    const response = await knex
-      .select('Descripcion as product', 'PrecioA as price', knex.raw('ROUND(Existencia, 2) as stock'))
-      .from('productos')
-      .where('productos.Grupo', groupId);
-    res.status(200).json(response);
-  } catch (error) {
-    console.error(error);
-  }
-});
-
-app.use('/api/products', async (req, res) => {
-  const { filter } = req.query;
-  if (filter) {
-    try {
-      const response = await knex
-        .select('IdProducto', 'Descripcion')
-        .from('productos')
-        .where(knex.raw(`Descripcion LIKE '%${filter}%'`));
-      res.status(200).json(response);
-    } catch (error) {
-      console.log(error);
-    }
-  } else {
-    try {
-      const response = await knex.select('IdProducto', 'Descripcion').from('productos');
-      res.status(200).json(response);
-    } catch (error) {
-      console.log(error);
-    }
-  }
-});
-
-app.use('/api/groups', async (req, res) => {
-  try {
-    const response = await knex.select('IdGrupo as groupId', 'Descripcion as name').from('grupos');
-    res.status(200).json(response);
-  } catch (error) {
-    console.error(error);
-  }
-});
-
-app.use(express.static(path.join(__dirname, 'client/build')));
-
-app.get('/*', function (request, response) {
-  response.sendFile(path.resolve(__dirname, 'client/build', 'index.html'));
+app.get("/*", function (request, response) {
+  response.sendFile(path.resolve(__dirname, "client/build", "index.html"));
 });
 
 app.listen(8000, () => {
-  console.log('server listening in port 8000');
+  console.log("server listening in port 8000");
 });
