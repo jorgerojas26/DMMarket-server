@@ -1,4 +1,4 @@
-const database = require("../database");
+const knex = require("../database");
 const model = require("../models/invoice");
 
 const GET_SALES = async (req, res) => {
@@ -23,13 +23,13 @@ const GET_SALES = async (req, res) => {
 const GET_BY_GROUP = async (req, res) => {
   const { from, to } = req.query;
   try {
-    const response = await database
+    const response = await knex
       .select(
         "grupos.Descripcion as categoria",
-        database.raw(
+        knex.raw(
           "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as rawProfit"
         ),
-        database.raw(
+        knex.raw(
           "ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit"
         )
       )

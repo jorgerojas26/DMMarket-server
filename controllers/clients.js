@@ -1,4 +1,4 @@
-const database = require("../database");
+const knex = require("../database");
 const MONTHS = require("../utils/months");
 
 const GET_CLIENTS = async (req, res) => {
@@ -7,17 +7,17 @@ const GET_CLIENTS = async (req, res) => {
   try {
     if (filter) {
       try {
-        const response = await database
+        const response = await knex
           .select("IdCliente", "Empresa as name")
           .from("clientes")
-          .where(database.raw(`Empresa LIKE '%${filter}%'`));
+          .where(knex.raw(`Empresa LIKE '%${filter}%'`));
         res.status(200).json(response);
       } catch (error) {
         console.log(error);
       }
     } else {
       try {
-        const response = await database
+        const response = await knex
           .select("IdCliente", "Empresa as name")
           .from("clientes");
         res.status(200).json(response);
@@ -34,10 +34,10 @@ const GET_BEST_CLIENTS = async (req, res) => {
   const { from, to } = req.query;
 
   try {
-    const response = await database
+    const response = await knex
       .select(
         "clientes.Empresa as client",
-        database.raw(
+        knex.raw(
           "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as total_USD"
         )
       )
@@ -64,14 +64,14 @@ const GET_BEST_CLIENTS_PER_PRODUCT = async (req, res) => {
   const { productId } = req.params;
 
   try {
-    const response = await database
+    const response = await knex
       .select(
         "clientes.Empresa as client",
-        database.raw("ROUND(SUM(slavefact.Cantidad), 2) as quantity_total"),
-        database.raw(
+        knex.raw("ROUND(SUM(slavefact.Cantidad), 2) as quantity_total"),
+        knex.raw(
           "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as total_USD"
         ),
-        database.raw(
+        knex.raw(
           "ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as utilidad"
         )
       )
@@ -98,9 +98,9 @@ const MONTHLY_AVERAGE = async (req, res) => {
   const { clientId } = req.params;
 
   try {
-    let response = await database
+    let response = await knex
       .select(
-        database.raw(`
+        knex.raw(`
           MIN(clientes.Empresa) as client,
        ROUND(SUM(IF(MONTH(masterfact.Fecha) = 1, slavefact.Precio * slavefact.Cantidad, NULL)), 2)  AS Enero,
        COUNT(IF(MONTH(masterfact.Fecha) = 1, slavefact.IdFactura, NULL))  AS Enero_transactions,
@@ -137,8 +137,8 @@ const MONTHLY_AVERAGE = async (req, res) => {
       })
       .innerJoin("clientes", "clientes.IdCliente", "masterfact.IdCliente")
       .where(
-        database.raw("YEAR(masterfact.Fecha)"),
-        database.raw("YEAR(CURDATE())")
+        knex.raw("YEAR(masterfact.Fecha)"),
+        knex.raw("YEAR(CURDATE())")
       )
       .andWhere("masterfact.IdCliente", clientId)
       .groupBy("masterfact.IdCliente");

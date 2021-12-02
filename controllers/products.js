@@ -1,21 +1,21 @@
-const database = require("../database");
+const knex = require("../database");
 const MONTHS = require("../utils/months");
 
 const GET_PRODUCTS = async (req, res) => {
   const { filter } = req.query;
   if (filter) {
     try {
-      const response = await database
+      const response = await knex
         .select()
         .from("productos")
-        .where(database.raw(`Descripcion LIKE '%${filter}%'`));
+        .where(knex.raw(`Descripcion LIKE '%${filter}%'`));
       res.status(200).json(response);
     } catch (error) {
       console.log(error);
     }
   } else {
     try {
-      const response = await database.select().from("productos");
+      const response = await knex.select().from("productos");
       res.status(200).json(response);
     } catch (error) {
       console.log(error);
@@ -25,7 +25,7 @@ const GET_PRODUCTS = async (req, res) => {
 
 const GET_BY_GROUP = async (req, res) => {
   try {
-    const response = await database
+    const response = await knex
       .select(
         "productos.IdProducto as productId",
         "productos.Descripcion as product",
@@ -51,9 +51,9 @@ const GET_BY_GROUP = async (req, res) => {
 const GET_COST_FLUCTUATION = async (req, res) => {
   const { productId } = req.params;
   try {
-    let response = await database
+    let response = await knex
       .select(
-        database.raw(`
+        knex.raw(`
           MIN(slavecomp.Descripcion) as Descripcion,
        ROUND(AVG(IF(MONTH(mastercomp.Fecha) = 1, slavecomp.Precio, NULL)), 2)  AS Enero,
        COUNT(IF(MONTH(mastercomp.Fecha) = 1, slavecomp.IdFactura, NULL))  AS Enero_transactions,
@@ -89,8 +89,8 @@ const GET_COST_FLUCTUATION = async (req, res) => {
         );
       })
       .where(
-        database.raw("YEAR(mastercomp.Fecha)"),
-        database.raw("YEAR(CURDATE())")
+        knex.raw("YEAR(mastercomp.Fecha)"),
+        knex.raw("YEAR(CURDATE())")
       )
       .andWhere("slavecomp.IdProducto", productId)
       .groupBy("slavecomp.IdProducto");
@@ -114,7 +114,7 @@ const GET_COST_FLUCTUATION = async (req, res) => {
 const GET_STOCK = async (req, res) => {
   const { productId } = req.params;
   try {
-    const response = await database("productos")
+    const response = await knex("productos")
       .select("PrecioA as price", "Existencia as stock")
       .where("IdProducto", productId);
 
@@ -126,7 +126,7 @@ const GET_STOCK = async (req, res) => {
 
 const GET_PRICE_LIST = async (req, res) => {
   try {
-    const response = await database
+    const response = await knex
       .select("Descripcion as name", "PrecioA as price", "Existencia as stock")
       .from("productos");
     res.status(200).json(response);
@@ -139,12 +139,12 @@ const GET_PRICE_LIST_BY_GROUP = async (req, res) => {
   const { groupId } = req.params;
 
   try {
-    const response = await database
+    const response = await knex
       .select(
         "Grupo",
         "Descripcion as product",
         "PrecioA as price",
-        database.raw("ROUND(Existencia, 2) as stock")
+        knex.raw("ROUND(Existencia, 2) as stock")
       )
       .from("productos")
       .where("productos.Grupo", groupId);
@@ -157,11 +157,11 @@ const GET_PRICE_LIST_BY_GROUP = async (req, res) => {
 
 const GET_COST_BY_GROUP = async (req, res) => {
   try {
-    const response = await database
+    const response = await knex
       .select(
-        database.raw("MIN(grupos.Descripcion) as group_name"),
-        database.raw("ROUND(SUM(productos.Existencia), 2) as stock"),
-        database.raw(
+        knex.raw("MIN(grupos.Descripcion) as group_name"),
+        knex.raw("ROUND(SUM(productos.Existencia), 2) as stock"),
+        knex.raw(
           "ROUND(SUM(productos.Existencia * productos.Costo), 2) as total_cost"
         )
       )

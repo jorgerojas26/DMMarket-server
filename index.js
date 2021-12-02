@@ -7,14 +7,26 @@ const clients_routes = require("./routes/clients");
 const groups_routes = require("./routes/groups");
 const invoices_routes = require("./routes/invoices");
 const products_routes = require("./routes/products");
+const employees_routes = require("./routes/employees");
 
 //app.use(express.static(path.join(__dirname, "public")));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/clients", clients_routes);
 app.use("/api/groups", groups_routes);
 app.use("/api/invoices", invoices_routes);
 app.use("/api/products", products_routes);
+app.use("/api/employees", employees_routes);
 
+app.use("*", (req, res) => {
+  res.status(404).json({
+    error: {
+      message: `El servidor no encontró ningún recurso en la URL ${req.baseUrl}`,
+    },
+  });
+});
 app.use(express.static(path.join(__dirname, "client/build")));
 
 app.get("/*", function (request, response) {

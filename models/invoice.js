@@ -1,18 +1,18 @@
-const database = require("../database");
+const knex = require("../database");
 
 exports.GET_SALES_QUERY = async ({ from, to }) => {
   try {
-    const response = await database
+    const response = await knex
       .select(
         "productos.Descripcion as product",
-        database.raw("ROUND(SUM(slavefact.Cantidad), 3) as quantity"),
-        database.raw(
+        knex.raw("ROUND(SUM(slavefact.Cantidad), 3) as quantity"),
+        knex.raw(
           "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as rawProfit"
         ),
-        database.raw(
+        knex.raw(
           "ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit"
         ),
-        database.raw(
+        knex.raw(
           "ROUND(AVG((slavefact.Precio - slavefact.Costo) / slavefact.Precio * 100), 2) as averageProfitPercent"
         )
       )
@@ -36,13 +36,13 @@ exports.GET_SALES_QUERY = async ({ from, to }) => {
 
 exports.GET_BY_GROUP_QUERY = async ({ from, to }) => {
   try {
-    const response = await database
+    const response = await knex
       .select(
         "grupos.Descripcion as categoria",
-        database.raw(
+        knex.raw(
           "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as rawProfit"
         ),
-        database.raw(
+        knex.raw(
           "ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit"
         )
       )

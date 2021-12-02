@@ -1,8 +1,8 @@
-const database = require("../database");
+const knex = require("../database");
 
 const GET_GROUPS = async (req, res) => {
   try {
-    const response = await database
+    const response = await knex
       .select("IdGrupo as groupId", "Descripcion as name")
       .from("grupos");
     res.status(200).json(response);
