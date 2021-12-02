@@ -20,13 +20,14 @@ app.use("/api/invoices", invoices_routes);
 app.use("/api/products", products_routes);
 app.use("/api/employees", employees_routes);
 
-app.use("*", (req, res) => {
+app.use("/api/*", (req, res) => {
   res.status(404).json({
     error: {
       message: `El servidor no encontró ningún recurso en la URL ${req.baseUrl}`,
     },
   });
 });
+
 app.use(express.static(path.join(__dirname, "client/build")));
 
 app.get("/*", function (request, response) {
