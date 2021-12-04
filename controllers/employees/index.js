@@ -28,19 +28,21 @@ const GET_COMMISSION_INFO = async (req, res) => {
         "grupos.Descripcion as group",
         "vendedor_comisiones.comision as commission"
       )
-      .from("vendedor_comisiones")
-      .rightJoin("grupos", "grupos.IdGrupo", "vendedor_comisiones.grupoId");
+      .from("grupos")
+      .leftJoin("vendedor_comisiones", function () {
+        this.on("vendedor_comisiones.grupoId", "grupos.IdGrupo").andOn(
+          "vendedor_comisiones.vendedorId",
+          Number(employeeId)
+        );
+      });
     res.status(200).json(response);
   } catch (error) {
     if (error.code === "ER_NO_SUCH_TABLE") {
-      const migration = fs
-        .readFileSync(
-          "./controllers/employees/create-table-vendedor-comisiones.sql",
-          "utf8"
-        )
-        .toString();
-      await knex.raw(migration);
-      GET_COMMISSION_INFO(req, res);
+      FALLBACK_CREATE_TABLE(() => {
+        GET_COMMISSION_INFO(req, res);
+      });
+    } else {
+      res.status(400).json({ success: false });
     }
     console.log(error.code);
   }
@@ -118,12 +120,27 @@ const GET_SALES = async (req, res) => {
       .andWhere("masterfact.IdVend", employeeId)
       .andWhere("masterfact.Anulada", 0)
       .groupBy("masterfact.IdFactura")
-    .orderBy('masterfact.Fecha', 'DESC')
+      .orderBy("masterfact.Fecha", "DESC");
     res.status(200).json(response);
   } catch (error) {
-    console.log(error);
-    res.status(400).json({ success: false });
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      FALLBACK_CREATE_TABLE(() => {
+        GET_SALES(req, res);
+      });
+    }
+    console.error(error);
   }
+};
+
+const FALLBACK_CREATE_TABLE = async (recursive_callback) => {
+  const migration = fs
+    .readFileSync(
+      "./controllers/employees/create-table-vendedor-comisiones.sql",
+      "utf8"
+    )
+    .toString();
+  await knex.raw(migration);
+  recursive_callback();
 };
 
 module.exports = {
