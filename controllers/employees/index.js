@@ -51,7 +51,6 @@ const GET_COMMISSION_INFO = async (req, res) => {
 const UPDATE_COMMISSION_INFO = async (req, res) => {
   const { employeeId } = req.params;
   const { commissionInfo } = req.body;
-  console.log(employeeId, commissionInfo);
 
   if (!commissionInfo || Object.keys(commissionInfo).length === 0) {
     res
@@ -62,17 +61,19 @@ const UPDATE_COMMISSION_INFO = async (req, res) => {
 
   try {
     for (const [key, value] of Object.entries(commissionInfo)) {
-      const commission = await knex("vendedor_comisiones").where(
-        "grupoId",
-        key
-      );
+      const commission = await knex("vendedor_comisiones")
+        .where("grupoId", key)
+        .andWhere("vendedorId", employeeId);
       console.log("checking if commissionInfo exists in database", commission);
       if (commission.length) {
-        const response = await knex("vendedor_comisiones")
-          .update("comision", value)
-          .where("grupoId", key);
+        console.log("yes, commission info exists!!!!!", value, key);
+        await knex("vendedor_comisiones")
+          .where("grupoId", key)
+          .andWhere("vendedorId", employeeId)
+          .update({ comision: value })
+          .debug();
       } else {
-        const response = await knex("vendedor_comisiones").insert({
+        await knex("vendedor_comisiones").insert({
           vendedorId: employeeId,
           grupoId: key,
           comision: value,
