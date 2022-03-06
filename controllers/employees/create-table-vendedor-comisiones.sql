@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS `fact_vendedor_comisiones` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `masterfactId` VARCHAR(12) NOT NULL,
   `grupoId` VARCHAR(10) NOT NULL,
-  `comision` INT NOT NULL,
+  `comision` FLOAT NOT NULL,
 
   PRIMARY KEY (`id`),
   FOREIGN KEY (`masterfactId`) REFERENCES `masterfact`(`IdFactura`) ON DELETE CASCADE ON UPDATE CASCADE,
