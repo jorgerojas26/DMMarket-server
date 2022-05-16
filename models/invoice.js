@@ -1,5 +1,32 @@
 const knex = require("../database");
 
+exports.GET_INVOICES = async ({ from, to }) => {
+  try {
+    const response = await knex
+      .select(
+        "masterfact.IdFactura as invoiceId",
+        "masterfact.Nombre as client",
+        "masterfact.Rif as rif",
+        "masterfact.Fecha as createdAt",
+        knex.raw(
+          "SELECT * FROM productos WHERE productos.IdProducto = slavefact.IdProducto"
+        )
+      )
+      .from("slavefact")
+      .innerJoin("masterfact", function () {
+        this.on("masterfact.IdFactura", "slavefact.IdFactura").andOn(
+          "masterfact.Anulada",
+          0
+        );
+      })
+      .whereBetween("masterfact.Fecha", [from, to])
+      .groupBy("productos.IdProducto")
+      .orderBy("createdAt", "DESC");
+
+    return response;
+  } catch (error) {}
+};
+
 exports.GET_SALES_QUERY = async ({ from, to }) => {
   try {
     const response = await knex

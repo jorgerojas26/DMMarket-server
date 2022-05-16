@@ -1,14 +1,23 @@
 const knex = require("../database");
 const model = require("../models/invoice");
 
+const GET_INVOICES = async (req, res) => {
+  const { from, to } = req.query;
+
+  try {
+    const response = model.GET_INVOICES({ from, to });
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error(error);
+  }
+};
 const GET_SALES = async (req, res) => {
   const { from, to } = req.query;
 
   try {
     const sales_report = await model.GET_SALES_QUERY({ from, to });
     const group_sales_chart_data = await model.GET_BY_GROUP_QUERY({ from, to });
-    console.log(sales_report);
-    console.log(group_sales_chart_data);
     const response = {
       sales_report,
       group_sales_chart_data,
@@ -52,6 +61,7 @@ const GET_BY_GROUP = async (req, res) => {
 };
 
 module.exports = {
+  GET_INVOICES,
   GET_SALES,
   GET_BY_GROUP,
 };

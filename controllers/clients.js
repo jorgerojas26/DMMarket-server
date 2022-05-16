@@ -136,10 +136,7 @@ const MONTHLY_AVERAGE = async (req, res) => {
         );
       })
       .innerJoin("clientes", "clientes.IdCliente", "masterfact.IdCliente")
-      .where(
-        knex.raw("YEAR(masterfact.Fecha)"),
-        knex.raw("YEAR(CURDATE())")
-      )
+      .where(knex.raw("YEAR(masterfact.Fecha)"), knex.raw("YEAR(CURDATE())"))
       .andWhere("masterfact.IdCliente", clientId)
       .groupBy("masterfact.IdCliente");
 
