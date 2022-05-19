@@ -5,10 +5,11 @@ const GET_INVOICES = async (req, res) => {
   const { from, to } = req.query;
 
   try {
-    const response = model.GET_INVOICES({ from, to });
+    const response = await model.GET_INVOICES({ from, to });
 
     res.status(200).json(response);
   } catch (error) {
+    res.status(500).json(error);
     console.error(error);
   }
 };

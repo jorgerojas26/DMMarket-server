@@ -8,23 +8,59 @@ exports.GET_INVOICES = async ({ from, to }) => {
         "masterfact.Nombre as client",
         "masterfact.Rif as rif",
         "masterfact.Fecha as createdAt",
-        knex.raw(
-          "SELECT * FROM productos WHERE productos.IdProducto = slavefact.IdProducto"
-        )
+        "slavefact.IdProducto",
+        "slavefact.Descripcion",
+        "slavefact.Cantidad",
+        "slavefact.Precio"
       )
-      .from("slavefact")
-      .innerJoin("masterfact", function () {
-        this.on("masterfact.IdFactura", "slavefact.IdFactura").andOn(
-          "masterfact.Anulada",
-          0
-        );
-      })
+      .from("masterfact")
+      .innerJoin("slavefact", "slavefact.IdFactura", "masterfact.IdFactura")
+      .where("masterfact.Anulada", 0)
       .whereBetween("masterfact.Fecha", [from, to])
-      .groupBy("productos.IdProducto")
+      .groupBy(
+        "masterfact.IdFactura",
+        "slavefact.IdProducto",
+        "slavefact.Descripcion",
+        "slavefact.Cantidad",
+        "slavefact.Precio"
+      )
       .orderBy("createdAt", "DESC");
 
-    return response;
-  } catch (error) {}
+    const invoices = {};
+
+    response.forEach((invoice) => {
+      if (!invoices[invoice.invoiceId]) {
+        invoices[invoice.invoiceId] = {
+          invoiceId: invoice.invoiceId,
+          client: invoice.client,
+          rif: invoice.rif,
+          createdAt: invoice.createdAt,
+          products: [],
+        };
+      }
+      invoices[invoice.invoiceId].products.push({
+        productId: invoice.IdProducto,
+        product: invoice.Descripcion,
+        quantity: invoice.Cantidad,
+        price: invoice.Precio,
+      });
+    });
+
+    //calculate invoice totals
+    Object.keys(invoices).forEach((invoiceId) => {
+      const invoice = invoices[invoiceId];
+      invoice.total = 0;
+      invoice.products.forEach((product) => {
+        invoice.total += product.quantity * product.price;
+      });
+    });
+
+    const invoicesArray = Object.keys(invoices).map((key) => invoices[key]);
+
+    return invoicesArray;
+  } catch (error) {
+    throw error;
+  }
 };
 
 exports.GET_SALES_QUERY = async ({ from, to }) => {
