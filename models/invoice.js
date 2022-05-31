@@ -24,7 +24,7 @@ exports.GET_INVOICES = async ({ from, to }) => {
         "slavefact.Cantidad",
         "slavefact.Precio"
       )
-      .orderBy("createdAt", "DESC");
+      .orderBy("masterfact.IdFactura", "DESC");
 
     const invoices = {};
 
