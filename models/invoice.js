@@ -11,10 +11,13 @@ exports.GET_INVOICES = async ({ from, to }) => {
         "slavefact.IdProducto",
         "slavefact.Descripcion",
         "slavefact.Cantidad",
-        "slavefact.Precio"
+        "slavefact.Precio",
+        "grupos.Descripcion as group"
       )
       .from("masterfact")
       .innerJoin("slavefact", "slavefact.IdFactura", "masterfact.IdFactura")
+      .innerJoin("productos", "productos.IdProducto", "slavefact.IdProducto")
+      .innerJoin("grupos", "grupos.IdGrupo", "productos.Grupo")
       .where("masterfact.Anulada", 0)
       .whereBetween("masterfact.Fecha", [from, to])
       .groupBy(
@@ -24,7 +27,8 @@ exports.GET_INVOICES = async ({ from, to }) => {
         "slavefact.Cantidad",
         "slavefact.Precio"
       )
-      .orderBy("masterfact.IdFactura", "DESC");
+      .orderBy("masterfact.IdFactura", "DESC")
+      .orderBy("productos.Descripcion", "DESC");
 
     const invoices = {};
 
@@ -41,8 +45,9 @@ exports.GET_INVOICES = async ({ from, to }) => {
       invoices[invoice.invoiceId].products.push({
         productId: invoice.IdProducto,
         product: invoice.Descripcion,
-        quantity: invoice.Cantidad,
-        price: invoice.Precio,
+        quantity: Number(invoice.Cantidad.toFixed(2)),
+        price: Number(invoice.Precio.toFixed(2)),
+        group: invoice.group,
       });
     });
 
@@ -52,10 +57,11 @@ exports.GET_INVOICES = async ({ from, to }) => {
       invoice.total = 0;
       invoice.products.forEach((product) => {
         invoice.total += product.quantity * product.price;
+        invoice.total = Number(invoice.total.toFixed(2));
       });
     });
 
-    const invoicesArray = Object.keys(invoices).map((key) => invoices[key]);
+    let invoicesArray = Object.keys(invoices).map((key) => invoices[key]);
 
     return invoicesArray;
   } catch (error) {
