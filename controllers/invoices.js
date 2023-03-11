@@ -13,12 +13,15 @@ const GET_INVOICES = async (req, res) => {
     console.error(error);
   }
 };
+
 const GET_SALES = async (req, res) => {
   const { from, to } = req.query;
 
   try {
     const sales_report = await model.GET_SALES_QUERY({ from, to });
+
     const group_sales_chart_data = await model.GET_BY_GROUP_QUERY({ from, to });
+
     const response = {
       sales_report,
       group_sales_chart_data,
@@ -26,6 +29,26 @@ const GET_SALES = async (req, res) => {
 
     res.status(200).json(response);
   } catch (error) {
+    console.error(error);
+  }
+};
+
+const GET_SALES_BY_CATEGORY = async (req, res) => {
+  const { from, to } = req.query;
+  const { categoryId } = req.params;
+
+  try {
+    const sales_by_category_report = await model.GET_SALES_BY_CATEGORY({
+      from,
+      to,
+      categoryId,
+    });
+
+    console.log("sales_by_category_report", sales_by_category_report);
+
+    res.status(200).json(sales_by_category_report);
+  } catch (error) {
+    res.status(500).json(error);
     console.error(error);
   }
 };
@@ -65,4 +88,5 @@ module.exports = {
   GET_INVOICES,
   GET_SALES,
   GET_BY_GROUP,
+  GET_SALES_BY_CATEGORY,
 };

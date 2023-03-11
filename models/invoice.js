@@ -69,7 +69,7 @@ exports.GET_INVOICES = async ({ from, to }) => {
   }
 };
 
-exports.GET_SALES_QUERY = async ({ from, to }) => {
+exports.GET_SALES_QUERY = async ({ from, to, groupId }) => {
   try {
     const response = await knex
       .select(
@@ -93,7 +93,17 @@ exports.GET_SALES_QUERY = async ({ from, to }) => {
         );
       })
       .innerJoin("productos", "productos.IdProducto", "slavefact.IdProducto")
+      .modify((query) => {
+        if (groupId) {
+          query.innerJoin("grupos", "grupos.idGrupo", "productos.Grupo");
+        }
+      })
       .whereBetween("masterfact.Fecha", [from, to])
+      .modify((query) => {
+        if (groupId) {
+          query.andWhere("grupos.idGrupo", groupId);
+        }
+      })
       .groupBy("productos.IdProducto")
       .orderBy("rawProfit", "DESC");
 
@@ -130,5 +140,36 @@ exports.GET_BY_GROUP_QUERY = async ({ from, to }) => {
     return response;
   } catch (error) {
     return error;
+  }
+};
+
+exports.GET_SALES_BY_CATEGORY = async ({ from, to, categoryId }) => {
+  try {
+    const response = await knex
+      .select(
+        "grupos.Descripcion as categoria",
+        knex.raw(
+          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as rawProfit"
+        ),
+        knex.raw(
+          "ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit"
+        )
+      )
+      .from("slavefact")
+      .innerJoin("masterfact", function () {
+        this.on("masterfact.IdFactura", "slavefact.IdFactura").andOn(
+          "masterfact.Anulada",
+          0
+        );
+      })
+      .innerJoin("productos", "productos.IdProducto", "slavefact.IdProducto")
+      .innerJoin("grupos", "grupos.idGrupo", "productos.Grupo")
+      .whereBetween("masterfact.Fecha", [from, to])
+      .andWhere("grupos.idGrupo", categoryId)
+      .groupBy("grupos.idGrupo");
+
+    return response;
+  } catch (error) {
+    throw error;
   }
 };

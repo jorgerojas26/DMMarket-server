@@ -1,4 +1,5 @@
 const knex = require("../database");
+const { GET_SALES_QUERY } = require("../models/invoice");
 
 const GET_GROUPS = async (req, res) => {
   try {
@@ -11,6 +12,18 @@ const GET_GROUPS = async (req, res) => {
   }
 };
 
+const GET_SALE_PRODUCTS_BY_GROUP = async (req, res) => {
+  const { from, to } = req.query;
+  const { groupId } = req.params;
+
+  try {
+    const response = await GET_SALES_QUERY({ from, to, groupId });
+
+    res.status(200).json(response);
+  } catch (error) {}
+};
+
 module.exports = {
   GET_GROUPS,
+  GET_SALE_PRODUCTS_BY_GROUP,
 };

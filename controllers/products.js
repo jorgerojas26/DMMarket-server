@@ -88,10 +88,7 @@ const GET_COST_FLUCTUATION = async (req, res) => {
           0
         );
       })
-      .where(
-        knex.raw("YEAR(mastercomp.Fecha)"),
-        knex.raw("YEAR(CURDATE())")
-      )
+      .where(knex.raw("YEAR(mastercomp.Fecha)"), knex.raw("YEAR(CURDATE())"))
       .andWhere("slavecomp.IdProducto", productId)
       .groupBy("slavecomp.IdProducto");
 
