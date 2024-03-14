@@ -87,41 +87,53 @@ const UPDATE_COMMISSION_INFO = async (req, res) => {
 };
 
 const GET_SALES = async (req, res) => {
-  const { from, to } = req.query;
+  const { from, to, showNoe } = req.query;
   const { employeeId } = req.params;
+
+  const masterTable = showNoe ? "masternoe" : "masterfact";
+  const slaveTable = showNoe ? "slavenoe" : "slavefact";
+  const idInvoice = showNoe ? "IdNoe " : "IdFactura";
 
   try {
     const response = await knex
       .select(
-        "masterfact.IdFactura as invoiceId",
-        "masterfact.Nombre as client",
-        "masterfact.Rif as rif",
-        "masterfact.Fecha as createdAt",
+        `${masterTable}.${idInvoice} as invoiceId`,
+        `${masterTable}.Nombre as client`,
+        `${masterTable}.Rif as rif`,
+        `${masterTable}.Fecha as createdAt`,
         knex.raw(
-          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as invoiceTotal"
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as invoiceTotal`
         ),
         knex.raw(
           `ROUND(SUM(CASE WHEN ISNULL(fact_vendedor_comisiones.comision) 
                 THEN 0 
-                ELSE slavefact.Precio * slavefact.Cantidad * (fact_vendedor_comisiones.comision / 100)
+                ELSE ${slaveTable}.Precio * ${slaveTable}.Cantidad * (fact_vendedor_comisiones.comision / 100)
                 END
               ), 2) as commissionTotal`
         )
       )
-      .from("masterfact")
-      .innerJoin("slavefact", "slavefact.IdFactura", "masterfact.IdFactura")
-      .innerJoin("productos", "productos.IdProducto", "slavefact.IdProducto")
+      .from(`${masterTable}`)
+      .innerJoin(
+        `${slaveTable}`,
+        `${slaveTable}.${idInvoice}`,
+        `${masterTable}.${idInvoice}`
+      )
+      .innerJoin(
+        "productos",
+        "productos.IdProducto",
+        `${slaveTable}.IdProducto`
+      )
       .leftJoin("fact_vendedor_comisiones", function () {
         this.on("fact_vendedor_comisiones.grupoId", "productos.Grupo").andOn(
           "fact_vendedor_comisiones.masterfactId",
-          "masterfact.IdFactura"
+          `${masterTable}.${idInvoice}`
         );
       })
-      .whereBetween("masterfact.Fecha", [from, to])
-      .andWhere("masterfact.IdVend", employeeId)
-      .andWhere("masterfact.Anulada", 0)
-      .groupBy("masterfact.IdFactura")
-      .orderBy("masterfact.Fecha", "DESC");
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
+      .andWhere(`${masterTable}.IdVend`, employeeId)
+      .andWhere(`${masterTable}.Anulada`, 0)
+      .groupBy(`${masterTable}.${idInvoice}`)
+      .orderBy(`${masterTable}.Fecha`, "DESC");
     res.status(200).json(response);
   } catch (error) {
     if (error.code === "ER_NO_SUCH_TABLE") {

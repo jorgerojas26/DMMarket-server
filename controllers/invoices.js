@@ -2,10 +2,10 @@ const knex = require("../database");
 const model = require("../models/invoice");
 
 const GET_INVOICES = async (req, res) => {
-  const { from, to } = req.query;
+  const { from, to, showNoe } = req.query;
 
   try {
-    const response = await model.GET_INVOICES({ from, to });
+    const response = await model.GET_INVOICES({ from, to, showNoe });
 
     res.status(200).json(response);
   } catch (error) {
@@ -15,7 +15,7 @@ const GET_INVOICES = async (req, res) => {
 };
 
 const GET_SALES = async (req, res) => {
-  const { from, to } = req.query;
+  const { from, to, showNoe } = req.query;
 
   try {
     const sales_report = await model.GET_SALES_QUERY({ from, to });
@@ -34,8 +34,10 @@ const GET_SALES = async (req, res) => {
 };
 
 const GET_SALES_BY_CATEGORY = async (req, res) => {
-  const { from, to } = req.query;
-  const { categoryId } = req.params;
+  const { from, to, showNotes } = req.query;
+  const { categoryId, showNotesParams } = req.params;
+
+  console.log(showNotes, showNotesParams);
 
   try {
     const sales_by_category_report = await model.GET_SALES_BY_CATEGORY({
@@ -54,28 +56,36 @@ const GET_SALES_BY_CATEGORY = async (req, res) => {
 };
 
 const GET_BY_GROUP = async (req, res) => {
-  const { from, to } = req.query;
+  const { from, to, showNoe } = req.query;
   try {
+    const masterTable = showNoe ? "masternoe" : "masterfact";
+    const slaveTable = showNoe ? "slavenoe" : "slavefact";
+    const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+
     const response = await knex
       .select(
         "grupos.Descripcion as categoria",
         knex.raw(
-          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as rawProfit"
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`
         ),
         knex.raw(
-          "ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit"
+          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`
         )
       )
-      .from("slavefact")
-      .innerJoin("masterfact", function () {
-        this.on("masterfact.IdFactura", "slavefact.IdFactura").andOn(
-          "masterfact.Anulada",
+      .from(slaveTable)
+      .innerJoin(masterTable, function () {
+        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
+          `${masterTable}.Anulada`,
           0
         );
       })
-      .innerJoin("productos", "productos.IdProducto", "slavefact.IdProducto")
+      .innerJoin(
+        "productos",
+        "productos.IdProducto",
+        `${slaveTable}.IdProducto`
+      )
       .innerJoin("grupos", "grupos.idGrupo", "productos.Grupo")
-      .whereBetween("masterfact.Fecha", [from, to])
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
       .groupBy("grupos.idGrupo");
 
     res.status(200).json(response);

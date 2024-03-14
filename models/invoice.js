@@ -1,33 +1,45 @@
 const knex = require("../database");
 
-exports.GET_INVOICES = async ({ from, to }) => {
+exports.GET_INVOICES = async ({ from, to, showNoe }) => {
+  const masterTable = showNoe ? "masternoe" : "masterfact";
+  const slaveTable = showNoe ? "slavenoe" : "slavefact";
+  const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+
   try {
     const response = await knex
       .select(
-        "masterfact.IdFactura as invoiceId",
-        "masterfact.Nombre as client",
-        "masterfact.Rif as rif",
-        "masterfact.Fecha as createdAt",
-        "slavefact.IdProducto",
-        "slavefact.Descripcion",
-        "slavefact.Cantidad",
-        "slavefact.Precio",
+        `${masterTable}.${idInvoice} as invoiceId`,
+        `${masterTable}.Nombre as client`,
+        `${masterTable}.Rif as rif`,
+        `${masterTable}.Fecha as createdAt`,
+        `${slaveTable}.IdProducto`,
+        `${slaveTable}.Descripcion`,
+        `${slaveTable}.Cantidad`,
+        `${slaveTable}.Precio`,
         "grupos.Descripcion as group"
       )
-      .from("masterfact")
-      .innerJoin("slavefact", "slavefact.IdFactura", "masterfact.IdFactura")
-      .innerJoin("productos", "productos.IdProducto", "slavefact.IdProducto")
-      .innerJoin("grupos", "grupos.IdGrupo", "productos.Grupo")
-      .where("masterfact.Anulada", 0)
-      .whereBetween("masterfact.Fecha", [from, to])
-      .groupBy(
-        "masterfact.IdFactura",
-        "slavefact.IdProducto",
-        "slavefact.Descripcion",
-        "slavefact.Cantidad",
-        "slavefact.Precio"
+      .from(masterTable)
+      .innerJoin(
+        slaveTable,
+        `${slaveTable}.${idInvoice}`,
+        `${masterTable}.${idInvoice}`
       )
-      .orderBy("masterfact.IdFactura", "DESC")
+      .innerJoin(
+        "productos",
+        "productos.IdProducto",
+        `${slaveTable}.IdProducto`
+      )
+      .innerJoin("grupos", "grupos.IdGrupo", "productos.Grupo")
+      .where(`${masterTable}.Anulada`, 0)
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
+      .groupBy(
+        `${masterTable}.${idInvoice}`,
+        `${slaveTable}.IdProducto`,
+        `${slaveTable}.Descripcion`,
+        `${slaveTable}.Cantidad`,
+        `${slaveTable}.Precio`
+      )
+      .orderBy(`${masterTable}.${idInvoice}`, "DESC")
       .orderBy("productos.Descripcion", "DESC");
 
     const invoices = {};
@@ -69,36 +81,43 @@ exports.GET_INVOICES = async ({ from, to }) => {
   }
 };
 
-exports.GET_SALES_QUERY = async ({ from, to, groupId }) => {
+exports.GET_SALES_QUERY = async ({ from, to, groupId, showNoe }) => {
   try {
+    const masterTable = showNoe ? "masternoe" : "masterfact";
+    const slaveTable = showNoe ? "slavenoe" : "slavefact";
+
     const response = await knex
       .select(
         "productos.Descripcion as product",
-        knex.raw("ROUND(SUM(slavefact.Cantidad), 3) as quantity"),
+        knex.raw(`ROUND(SUM(${slaveTable}.Cantidad), 3) as quantity`),
         knex.raw(
-          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as rawProfit"
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`
         ),
         knex.raw(
-          "ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit"
+          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`
         ),
         knex.raw(
-          "ROUND(AVG((slavefact.Precio - slavefact.Costo) / slavefact.Precio * 100), 2) as averageProfitPercent"
+          `ROUND(AVG((${slaveTable}.Precio - ${slaveTable}.Costo) / ${slaveTable}.Precio * 100), 2) as averageProfitPercent`
         )
       )
-      .from("slavefact")
-      .innerJoin("masterfact", function () {
-        this.on("masterfact.IdFactura", "slavefact.IdFactura").andOn(
-          "masterfact.Anulada",
+      .from(slaveTable)
+      .innerJoin(masterTable, function () {
+        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.IdFactura`).andOn(
+          `${masterTable}.Anulada`,
           0
         );
       })
-      .innerJoin("productos", "productos.IdProducto", "slavefact.IdProducto")
+      .innerJoin(
+        "productos",
+        "productos.IdProducto",
+        `${slaveTable}.IdProducto`
+      )
       .modify((query) => {
         if (groupId) {
           query.innerJoin("grupos", "grupos.idGrupo", "productos.Grupo");
         }
       })
-      .whereBetween("masterfact.Fecha", [from, to])
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
       .modify((query) => {
         if (groupId) {
           query.andWhere("grupos.idGrupo", groupId);
@@ -113,28 +132,36 @@ exports.GET_SALES_QUERY = async ({ from, to, groupId }) => {
   }
 };
 
-exports.GET_BY_GROUP_QUERY = async ({ from, to }) => {
+exports.GET_BY_GROUP_QUERY = async ({ from, to, showNoe }) => {
   try {
+    const masterTable = showNoe ? "masternoe" : "masterfact";
+    const slaveTable = showNoe ? "slavenoe" : "slavefact";
+    const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+
     const response = await knex
       .select(
         "grupos.Descripcion as categoria",
         knex.raw(
-          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as rawProfit"
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`
         ),
         knex.raw(
-          "ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit"
+          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`
         )
       )
-      .from("slavefact")
-      .innerJoin("masterfact", function () {
-        this.on("masterfact.IdFactura", "slavefact.IdFactura").andOn(
-          "masterfact.Anulada",
+      .from(slaveTable)
+      .innerJoin(masterTable, function () {
+        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
+          `${masterTable}.Anulada`,
           0
         );
       })
-      .innerJoin("productos", "productos.IdProducto", "slavefact.IdProducto")
+      .innerJoin(
+        "productos",
+        "productos.IdProducto",
+        `${slaveTable}.IdProducto`
+      )
       .innerJoin("grupos", "grupos.idGrupo", "productos.Grupo")
-      .whereBetween("masterfact.Fecha", [from, to])
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
       .groupBy("grupos.idGrupo");
 
     return response;
@@ -143,28 +170,36 @@ exports.GET_BY_GROUP_QUERY = async ({ from, to }) => {
   }
 };
 
-exports.GET_SALES_BY_CATEGORY = async ({ from, to, categoryId }) => {
+exports.GET_SALES_BY_CATEGORY = async ({ from, to, categoryId, showNoe }) => {
   try {
+    const masterTable = showNoe ? "masternoe" : "masterfact";
+    const slaveTable = showNoe ? "slavenoe" : "slavefact";
+    const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+
     const response = await knex
       .select(
         "grupos.Descripcion as categoria",
         knex.raw(
-          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as rawProfit"
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`
         ),
         knex.raw(
-          "ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as netProfit"
+          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`
         )
       )
-      .from("slavefact")
-      .innerJoin("masterfact", function () {
-        this.on("masterfact.IdFactura", "slavefact.IdFactura").andOn(
-          "masterfact.Anulada",
+      .from(slaveTable)
+      .innerJoin(masterTable, function () {
+        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
+          `${masterTable}.Anulada`,
           0
         );
       })
-      .innerJoin("productos", "productos.IdProducto", "slavefact.IdProducto")
+      .innerJoin(
+        "productos",
+        "productos.IdProducto",
+        `${slaveTable}.IdProducto`
+      )
       .innerJoin("grupos", "grupos.idGrupo", "productos.Grupo")
-      .whereBetween("masterfact.Fecha", [from, to])
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
       .andWhere("grupos.idGrupo", categoryId)
       .groupBy("grupos.idGrupo");
 

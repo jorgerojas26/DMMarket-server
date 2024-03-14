@@ -13,11 +13,11 @@ const GET_GROUPS = async (req, res) => {
 };
 
 const GET_SALE_PRODUCTS_BY_GROUP = async (req, res) => {
-  const { from, to } = req.query;
+  const { from, to, showNoe } = req.query;
   const { groupId } = req.params;
 
   try {
-    const response = await GET_SALES_QUERY({ from, to, groupId });
+    const response = await GET_SALES_QUERY({ from, to, groupId, showNoe });
 
     res.status(200).json(response);
   } catch (error) {}

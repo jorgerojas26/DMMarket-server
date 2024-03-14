@@ -31,25 +31,29 @@ const GET_CLIENTS = async (req, res) => {
 };
 
 const GET_BEST_CLIENTS = async (req, res) => {
-  const { from, to } = req.query;
+  const { from, to, showNoe } = req.query;
+
+  const masterTable = showNoe ? "masternoe" : "masterfact";
+  const slaveTable = showNoe ? "slavenoe" : "slavefact";
+  const idInvoice = showNoe ? "IdNoe " : "IdFactura";
 
   try {
     const response = await knex
       .select(
         "clientes.Empresa as client",
         knex.raw(
-          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as total_USD"
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as total_USD`
         )
       )
-      .from("slavefact")
-      .innerJoin("masterfact", function () {
-        this.on("masterfact.IdFactura", "slavefact.IdFactura").andOn(
-          "masterfact.Anulada",
+      .from(`${slaveTable}`)
+      .innerJoin(`${masterTable}`, function () {
+        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
+          `${masterTable}.Anulada`,
           0
         );
       })
-      .innerJoin("clientes", "clientes.IdCliente", "masterfact.IdCliente")
-      .whereBetween("masterfact.Fecha", [from, to])
+      .innerJoin("clientes", "clientes.IdCliente", `${masterTable}.IdCliente`)
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
       .groupBy("clientes.IdCliente")
       .orderBy("total_USD", "desc");
 
@@ -60,31 +64,35 @@ const GET_BEST_CLIENTS = async (req, res) => {
 };
 
 const GET_BEST_CLIENTS_PER_PRODUCT = async (req, res) => {
-  const { from, to } = req.query;
   const { productId } = req.params;
+  const { from, to, showNoe } = req.query;
+
+  const masterTable = showNoe ? "masternoe" : "masterfact";
+  const slaveTable = showNoe ? "slavenoe" : "slavefact";
+  const idInvoice = showNoe ? "IdNoe " : "IdFactura";
 
   try {
     const response = await knex
       .select(
         "clientes.Empresa as client",
-        knex.raw("ROUND(SUM(slavefact.Cantidad), 2) as quantity_total"),
+        knex.raw(`ROUND(SUM(${slaveTable}.Cantidad), 2) as quantity_total`),
         knex.raw(
-          "ROUND(SUM(slavefact.Precio * slavefact.Cantidad), 2) as total_USD"
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as total_USD`
         ),
         knex.raw(
-          "ROUND(SUM((slavefact.Precio - slavefact.Costo) * slavefact.Cantidad), 2) as utilidad"
+          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as utilidad`
         )
       )
-      .from("slavefact")
-      .innerJoin("masterfact", function () {
-        this.on("masterfact.IdFactura", "slavefact.IdFactura").andOn(
-          "masterfact.Anulada",
+      .from(`${slaveTable}`)
+      .innerJoin(`${masterTable}`, function () {
+        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
+          `${masterTable}.Anulada`,
           0
         );
       })
-      .innerJoin("clientes", "clientes.IdCliente", "masterfact.IdCliente")
-      .whereBetween("masterfact.Fecha", [from, to])
-      .andWhere("slavefact.IdProducto", productId)
+      .innerJoin("clientes", "clientes.IdCliente", `${masterTable}.IdCliente`)
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
+      .andWhere(`${slaveTable}.IdProducto`, productId)
       .groupBy("clientes.IdCliente")
       .orderBy("total_USD", "desc");
 
@@ -96,49 +104,57 @@ const GET_BEST_CLIENTS_PER_PRODUCT = async (req, res) => {
 
 const MONTHLY_AVERAGE = async (req, res) => {
   const { clientId } = req.params;
+  const { showNoe } = req.query;
 
   try {
+    const masterTable = showNoe ? "masternoe" : "masterfact";
+    const slaveTable = showNoe ? "slavenoe" : "slavefact";
+    const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+
     let response = await knex
       .select(
         knex.raw(`
           MIN(clientes.Empresa) as client,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 1, slavefact.Precio * slavefact.Cantidad, NULL)), 2)  AS Enero,
-       COUNT(IF(MONTH(masterfact.Fecha) = 1, slavefact.IdFactura, NULL))  AS Enero_transactions,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 2, slavefact.Precio * slavefact.Cantidad, NULL)), 2)  AS Febrero,
-       COUNT(IF(MONTH(masterfact.Fecha) = 2, slavefact.IdFactura, NULL))  AS Febrero_transactions,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 3, slavefact.Precio * slavefact.Cantidad, NULL)), 2)  AS Marzo,
-       COUNT(IF(MONTH(masterfact.Fecha) = 3, slavefact.IdFactura, NULL))  AS Marzo_transactions,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 4, slavefact.Precio * slavefact.Cantidad, NULL)), 2)  AS Abril,
-       COUNT(IF(MONTH(masterfact.Fecha) = 4, slavefact.IdFactura, NULL))  AS Abril_transactions,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 5, slavefact.Precio * slavefact.Cantidad, NULL)), 2)  AS Mayo,
-       COUNT(IF(MONTH(masterfact.Fecha) = 5, slavefact.IdFactura, NULL))  AS Mayo_transactions,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 6, slavefact.Precio * slavefact.Cantidad, NULL)), 2)  AS Junio,
-       COUNT(IF(MONTH(masterfact.Fecha) = 6, slavefact.IdFactura, NULL))  AS Junio_transactions,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 7, slavefact.Precio * slavefact.Cantidad, NULL)), 2)  AS Julio,
-       COUNT(IF(MONTH(masterfact.Fecha) = 7, slavefact.IdFactura, NULL))  AS Julio_transactions,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 8, slavefact.Precio * slavefact.Cantidad, NULL)), 2)  AS Agosto,
-       COUNT(IF(MONTH(masterfact.Fecha) = 8, slavefact.IdFactura, NULL))  AS Agosto_transactions,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 9, slavefact.Precio * slavefact.Cantidad, NULL)), 2) AS Septiembre,
-       COUNT(IF(MONTH(masterfact.Fecha) = 9, slavefact.IdFactura, NULL))  AS Septiembre_transactions,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 10, slavefact.Precio * slavefact.Cantidad, NULL)), 2) AS Octubre,
-       COUNT(IF(MONTH(masterfact.Fecha) = 10, slavefact.IdFactura, NULL))  AS Octubre_transactions,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 11, slavefact.Precio * slavefact.Cantidad, NULL)), 2) AS Noviembre,
-       COUNT(IF(MONTH(masterfact.Fecha) = 11, slavefact.IdFactura, NULL))  AS Noviembre_transactions,
-       ROUND(SUM(IF(MONTH(masterfact.Fecha) = 12, slavefact.Precio * slavefact.Cantidad, NULL)), 2) AS Diciembre,
-       COUNT(IF(MONTH(masterfact.Fecha) = 12, slavefact.IdFactura, NULL))  AS Diciembre_transactions
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 1, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2)  AS Enero,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 1, ${slaveTable}.${idInvoice}, NULL))  AS Enero_transactions,
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 2, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2)  AS Febrero,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 2, ${slaveTable}.${idInvoice}, NULL))  AS Febrero_transactions,
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 3, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2)  AS Marzo,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 3, ${slaveTable}.${idInvoice}, NULL))  AS Marzo_transactions,
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 4, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2)  AS Abril,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 4, ${slaveTable}.${idInvoice}, NULL))  AS Abril_transactions,
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 5, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2)  AS Mayo,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 5, ${slaveTable}.${idInvoice}, NULL))  AS Mayo_transactions,
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 6, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2)  AS Junio,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 6, ${slaveTable}.${idInvoice}, NULL))  AS Junio_transactions,
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 7, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2)  AS Julio,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 7, ${slaveTable}.${idInvoice}, NULL))  AS Julio_transactions,
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 8, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2)  AS Agosto,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 8, ${slaveTable}.${idInvoice}, NULL))  AS Agosto_transactions,
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 9, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2) AS Septiembre,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 9, ${slaveTable}.${idInvoice}, NULL))  AS Septiembre_transactions,
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 10, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2) AS Octubre,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 10, ${slaveTable}.${idInvoice}, NULL))  AS Octubre_transactions,
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 11, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2) AS Noviembre,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 11, ${slaveTable}.${idInvoice}, NULL))  AS Noviembre_transactions,
+       ROUND(SUM(IF(MONTH(${masterTable}.Fecha) = 12, ${slaveTable}.Precio * ${slaveTable}.Cantidad, NULL)), 2) AS Diciembre,
+       COUNT(IF(MONTH(${masterTable}.Fecha) = 12, ${slaveTable}.${idInvoice}, NULL))  AS Diciembre_transactions
             `)
       )
-      .from("slavefact")
-      .innerJoin("masterfact", function () {
-        this.on("masterfact.IdFactura", "slavefact.IdFactura").andOn(
-          "masterfact.Anulada",
+      .from(`${slaveTable}`)
+      .innerJoin(`${masterTable}`, function () {
+        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
+          `${masterTable}.Anulada`,
           0
         );
       })
-      .innerJoin("clientes", "clientes.IdCliente", "masterfact.IdCliente")
-      .where(knex.raw("YEAR(masterfact.Fecha)"), knex.raw("YEAR(CURDATE())"))
-      .andWhere("masterfact.IdCliente", clientId)
-      .groupBy("masterfact.IdCliente");
+      .innerJoin("clientes", "clientes.IdCliente", `${masterTable}.IdCliente`)
+      .where(
+        knex.raw(`YEAR(${masterTable}.Fecha)`),
+        knex.raw("YEAR(CURDATE())")
+      )
+      .andWhere(`${masterTable}.IdCliente`, clientId)
+      .groupBy(`${masterTable}.IdCliente`);
 
     response = response.reduce(
       (acc, current) => ({
