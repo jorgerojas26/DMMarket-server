@@ -31,11 +31,8 @@ const GET_CLIENTS = async (req, res) => {
 };
 
 const GET_BEST_CLIENTS = async (req, res) => {
-  const { from, to, showNoe } = req.query;
-
-  const masterTable = showNoe ? "masternoe" : "masterfact";
-  const slaveTable = showNoe ? "slavenoe" : "slavefact";
-  const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+  const { from, to } = req.query;
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
 
   try {
     const response = await knex
@@ -47,10 +44,10 @@ const GET_BEST_CLIENTS = async (req, res) => {
       )
       .from(`${slaveTable}`)
       .innerJoin(`${masterTable}`, function () {
-        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
-          `${masterTable}.Anulada`,
-          0
-        );
+        this.on(
+          `${masterTable}.${idInvoice}`,
+          `${slaveTable}.${idInvoice}`
+        ).andOn(`${masterTable}.Anulada`, 0);
       })
       .innerJoin("clientes", "clientes.IdCliente", `${masterTable}.IdCliente`)
       .whereBetween(`${masterTable}.Fecha`, [from, to])
@@ -65,11 +62,8 @@ const GET_BEST_CLIENTS = async (req, res) => {
 
 const GET_BEST_CLIENTS_PER_PRODUCT = async (req, res) => {
   const { productId } = req.params;
-  const { from, to, showNoe } = req.query;
-
-  const masterTable = showNoe ? "masternoe" : "masterfact";
-  const slaveTable = showNoe ? "slavenoe" : "slavefact";
-  const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+  const { from, to } = req.query;
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
 
   try {
     const response = await knex
@@ -85,10 +79,10 @@ const GET_BEST_CLIENTS_PER_PRODUCT = async (req, res) => {
       )
       .from(`${slaveTable}`)
       .innerJoin(`${masterTable}`, function () {
-        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
-          `${masterTable}.Anulada`,
-          0
-        );
+        this.on(
+          `${masterTable}.${idInvoice}`,
+          `${slaveTable}.${idInvoice}`
+        ).andOn(`${masterTable}.Anulada`, 0);
       })
       .innerJoin("clientes", "clientes.IdCliente", `${masterTable}.IdCliente`)
       .whereBetween(`${masterTable}.Fecha`, [from, to])
@@ -104,13 +98,9 @@ const GET_BEST_CLIENTS_PER_PRODUCT = async (req, res) => {
 
 const MONTHLY_AVERAGE = async (req, res) => {
   const { clientId } = req.params;
-  const { showNoe } = req.query;
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
 
   try {
-    const masterTable = showNoe ? "masternoe" : "masterfact";
-    const slaveTable = showNoe ? "slavenoe" : "slavefact";
-    const idInvoice = showNoe ? "IdNoe " : "IdFactura";
-
     let response = await knex
       .select(
         knex.raw(`
@@ -143,10 +133,10 @@ const MONTHLY_AVERAGE = async (req, res) => {
       )
       .from(`${slaveTable}`)
       .innerJoin(`${masterTable}`, function () {
-        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
-          `${masterTable}.Anulada`,
-          0
-        );
+        this.on(
+          `${masterTable}.${idInvoice}`,
+          `${slaveTable}.${idInvoice}`
+        ).andOn(`${masterTable}.Anulada`, 0);
       })
       .innerJoin("clientes", "clientes.IdCliente", `${masterTable}.IdCliente`)
       .where(

@@ -1,9 +1,7 @@
 const knex = require("../database");
 
-exports.GET_INVOICES = async ({ from, to, showNoe }) => {
-  const masterTable = showNoe ? "masternoe" : "masterfact";
-  const slaveTable = showNoe ? "slavenoe" : "slavefact";
-  const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+exports.GET_INVOICES = async ({ from, to, req }) => {
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
 
   try {
     const response = await knex
@@ -81,11 +79,9 @@ exports.GET_INVOICES = async ({ from, to, showNoe }) => {
   }
 };
 
-exports.GET_SALES_QUERY = async ({ from, to, groupId, showNoe }) => {
+exports.GET_SALES_QUERY = async ({ from, to, groupId, req }) => {
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
   try {
-    const masterTable = showNoe ? "masternoe" : "masterfact";
-    const slaveTable = showNoe ? "slavenoe" : "slavefact";
-
     const response = await knex
       .select(
         "productos.Descripcion as product",
@@ -102,10 +98,10 @@ exports.GET_SALES_QUERY = async ({ from, to, groupId, showNoe }) => {
       )
       .from(slaveTable)
       .innerJoin(masterTable, function () {
-        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.IdFactura`).andOn(
-          `${masterTable}.Anulada`,
-          0
-        );
+        this.on(
+          `${masterTable}.${idInvoice}`,
+          `${slaveTable}.${idInvoice}`
+        ).andOn(`${masterTable}.Anulada`, 0);
       })
       .innerJoin(
         "productos",
@@ -132,12 +128,10 @@ exports.GET_SALES_QUERY = async ({ from, to, groupId, showNoe }) => {
   }
 };
 
-exports.GET_BY_GROUP_QUERY = async ({ from, to, showNoe }) => {
-  try {
-    const masterTable = showNoe ? "masternoe" : "masterfact";
-    const slaveTable = showNoe ? "slavenoe" : "slavefact";
-    const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+exports.GET_BY_GROUP_QUERY = async ({ from, to, req }) => {
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
 
+  try {
     const response = await knex
       .select(
         "grupos.Descripcion as categoria",
@@ -150,10 +144,10 @@ exports.GET_BY_GROUP_QUERY = async ({ from, to, showNoe }) => {
       )
       .from(slaveTable)
       .innerJoin(masterTable, function () {
-        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
-          `${masterTable}.Anulada`,
-          0
-        );
+        this.on(
+          `${masterTable}.${idInvoice}`,
+          `${slaveTable}.${idInvoice}`
+        ).andOn(`${masterTable}.Anulada`, 0);
       })
       .innerJoin(
         "productos",
@@ -170,12 +164,10 @@ exports.GET_BY_GROUP_QUERY = async ({ from, to, showNoe }) => {
   }
 };
 
-exports.GET_SALES_BY_CATEGORY = async ({ from, to, categoryId, showNoe }) => {
-  try {
-    const masterTable = showNoe ? "masternoe" : "masterfact";
-    const slaveTable = showNoe ? "slavenoe" : "slavefact";
-    const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+exports.GET_SALES_BY_CATEGORY = async ({ from, to, categoryId, req }) => {
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
 
+  try {
     const response = await knex
       .select(
         "grupos.Descripcion as categoria",
@@ -188,10 +180,10 @@ exports.GET_SALES_BY_CATEGORY = async ({ from, to, categoryId, showNoe }) => {
       )
       .from(slaveTable)
       .innerJoin(masterTable, function () {
-        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
-          `${masterTable}.Anulada`,
-          0
-        );
+        this.on(
+          `${masterTable}.${idInvoice}`,
+          `${slaveTable}.${idInvoice}`
+        ).andOn(`${masterTable}.Anulada`, 0);
       })
       .innerJoin(
         "productos",

@@ -87,12 +87,9 @@ const UPDATE_COMMISSION_INFO = async (req, res) => {
 };
 
 const GET_SALES = async (req, res) => {
-  const { from, to, showNoe } = req.query;
+  const { from, to } = req.query;
   const { employeeId } = req.params;
-
-  const masterTable = showNoe ? "masternoe" : "masterfact";
-  const slaveTable = showNoe ? "slavenoe" : "slavefact";
-  const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
 
   try {
     const response = await knex

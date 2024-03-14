@@ -2,10 +2,10 @@ const knex = require("../database");
 const model = require("../models/invoice");
 
 const GET_INVOICES = async (req, res) => {
-  const { from, to, showNoe } = req.query;
+  const { from, to } = req.query;
 
   try {
-    const response = await model.GET_INVOICES({ from, to, showNoe });
+    const response = await model.GET_INVOICES({ from, to, req });
 
     res.status(200).json(response);
   } catch (error) {
@@ -15,12 +15,16 @@ const GET_INVOICES = async (req, res) => {
 };
 
 const GET_SALES = async (req, res) => {
-  const { from, to, showNoe } = req.query;
+  const { from, to } = req.query;
 
   try {
-    const sales_report = await model.GET_SALES_QUERY({ from, to });
+    const sales_report = await model.GET_SALES_QUERY({ from, to, req });
 
-    const group_sales_chart_data = await model.GET_BY_GROUP_QUERY({ from, to });
+    const group_sales_chart_data = await model.GET_BY_GROUP_QUERY({
+      from,
+      to,
+      req,
+    });
 
     const response = {
       sales_report,
@@ -34,13 +38,11 @@ const GET_SALES = async (req, res) => {
 };
 
 const GET_SALES_BY_CATEGORY = async (req, res) => {
-  const { from, to, showNotes } = req.query;
-  const { categoryId, showNotesParams } = req.params;
-
-  console.log(showNotes, showNotesParams);
-
+  const { from, to } = req.query;
+  const { categoryId } = req.params;
   try {
     const sales_by_category_report = await model.GET_SALES_BY_CATEGORY({
+      req,
       from,
       to,
       categoryId,
@@ -56,12 +58,10 @@ const GET_SALES_BY_CATEGORY = async (req, res) => {
 };
 
 const GET_BY_GROUP = async (req, res) => {
-  const { from, to, showNoe } = req.query;
-  try {
-    const masterTable = showNoe ? "masternoe" : "masterfact";
-    const slaveTable = showNoe ? "slavenoe" : "slavefact";
-    const idInvoice = showNoe ? "IdNoe " : "IdFactura";
+  const { from, to } = req.query;
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
 
+  try {
     const response = await knex
       .select(
         "grupos.Descripcion as categoria",
@@ -74,10 +74,10 @@ const GET_BY_GROUP = async (req, res) => {
       )
       .from(slaveTable)
       .innerJoin(masterTable, function () {
-        this.on(`${masterTable}.${idInvoice}`, `${slaveTable}.${idInvoice}`).andOn(
-          `${masterTable}.Anulada`,
-          0
-        );
+        this.on(
+          `${masterTable}.${idInvoice}`,
+          `${slaveTable}.${idInvoice}`
+        ).andOn(`${masterTable}.Anulada`, 0);
       })
       .innerJoin(
         "productos",
