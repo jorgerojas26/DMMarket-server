@@ -1,7 +1,7 @@
 const knex = require("../database");
 
-exports.GET_INVOICES = async ({ from, to, req }) => {
-  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
+exports.GET_INVOICES = async ({ from, to, showNoe }) => {
+  const { masterTable, slaveTable, idInvoice } = showNoe;
 
   try {
     const response = await knex
@@ -14,18 +14,18 @@ exports.GET_INVOICES = async ({ from, to, req }) => {
         `${slaveTable}.Descripcion`,
         `${slaveTable}.Cantidad`,
         `${slaveTable}.Precio`,
-        "grupos.Descripcion as group"
+        "grupos.Descripcion as group",
       )
       .from(masterTable)
       .innerJoin(
         slaveTable,
         `${slaveTable}.${idInvoice}`,
-        `${masterTable}.${idInvoice}`
+        `${masterTable}.${idInvoice}`,
       )
       .innerJoin(
         "productos",
         "productos.IdProducto",
-        `${slaveTable}.IdProducto`
+        `${slaveTable}.IdProducto`,
       )
       .innerJoin("grupos", "grupos.IdGrupo", "productos.Grupo")
       .where(`${masterTable}.Anulada`, 0)
@@ -35,7 +35,7 @@ exports.GET_INVOICES = async ({ from, to, req }) => {
         `${slaveTable}.IdProducto`,
         `${slaveTable}.Descripcion`,
         `${slaveTable}.Cantidad`,
-        `${slaveTable}.Precio`
+        `${slaveTable}.Precio`,
       )
       .orderBy(`${masterTable}.${idInvoice}`, "DESC")
       .orderBy("productos.Descripcion", "DESC");
@@ -79,34 +79,34 @@ exports.GET_INVOICES = async ({ from, to, req }) => {
   }
 };
 
-exports.GET_SALES_QUERY = async ({ from, to, groupId, req }) => {
-  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
+exports.GET_SALES_QUERY = async ({ from, to, groupId, showNoe }) => {
+  const { masterTable, slaveTable, idInvoice } = showNoe;
   try {
     const response = await knex
       .select(
         "productos.Descripcion as product",
         knex.raw(`ROUND(SUM(${slaveTable}.Cantidad), 3) as quantity`),
         knex.raw(
-          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`,
         ),
         knex.raw(
-          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`
+          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`,
         ),
         knex.raw(
-          `ROUND(AVG((${slaveTable}.Precio - ${slaveTable}.Costo) / ${slaveTable}.Precio * 100), 2) as averageProfitPercent`
-        )
+          `ROUND(AVG((${slaveTable}.Precio - ${slaveTable}.Costo) / ${slaveTable}.Precio * 100), 2) as averageProfitPercent`,
+        ),
       )
       .from(slaveTable)
       .innerJoin(masterTable, function () {
         this.on(
           `${masterTable}.${idInvoice}`,
-          `${slaveTable}.${idInvoice}`
+          `${slaveTable}.${idInvoice}`,
         ).andOn(`${masterTable}.Anulada`, 0);
       })
       .innerJoin(
         "productos",
         "productos.IdProducto",
-        `${slaveTable}.IdProducto`
+        `${slaveTable}.IdProducto`,
       )
       .modify((query) => {
         if (groupId) {
@@ -128,31 +128,31 @@ exports.GET_SALES_QUERY = async ({ from, to, groupId, req }) => {
   }
 };
 
-exports.GET_BY_GROUP_QUERY = async ({ from, to, req }) => {
-  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
+exports.GET_BY_GROUP_QUERY = async ({ from, to, showNoe }) => {
+  const { masterTable, slaveTable, idInvoice } = showNoe;
 
   try {
     const response = await knex
       .select(
         "grupos.Descripcion as categoria",
         knex.raw(
-          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`,
         ),
         knex.raw(
-          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`
-        )
+          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`,
+        ),
       )
       .from(slaveTable)
       .innerJoin(masterTable, function () {
         this.on(
           `${masterTable}.${idInvoice}`,
-          `${slaveTable}.${idInvoice}`
+          `${slaveTable}.${idInvoice}`,
         ).andOn(`${masterTable}.Anulada`, 0);
       })
       .innerJoin(
         "productos",
         "productos.IdProducto",
-        `${slaveTable}.IdProducto`
+        `${slaveTable}.IdProducto`,
       )
       .innerJoin("grupos", "grupos.idGrupo", "productos.Grupo")
       .whereBetween(`${masterTable}.Fecha`, [from, to])
@@ -164,31 +164,31 @@ exports.GET_BY_GROUP_QUERY = async ({ from, to, req }) => {
   }
 };
 
-exports.GET_SALES_BY_CATEGORY = async ({ from, to, categoryId, req }) => {
-  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
+exports.GET_SALES_BY_CATEGORY = async ({ from, to, categoryId, showNoe }) => {
+  const { masterTable, slaveTable, idInvoice } = showNoe;
 
   try {
     const response = await knex
       .select(
         "grupos.Descripcion as categoria",
         knex.raw(
-          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`,
         ),
         knex.raw(
-          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`
-        )
+          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`,
+        ),
       )
       .from(slaveTable)
       .innerJoin(masterTable, function () {
         this.on(
           `${masterTable}.${idInvoice}`,
-          `${slaveTable}.${idInvoice}`
+          `${slaveTable}.${idInvoice}`,
         ).andOn(`${masterTable}.Anulada`, 0);
       })
       .innerJoin(
         "productos",
         "productos.IdProducto",
-        `${slaveTable}.IdProducto`
+        `${slaveTable}.IdProducto`,
       )
       .innerJoin("grupos", "grupos.idGrupo", "productos.Grupo")
       .whereBetween(`${masterTable}.Fecha`, [from, to])

@@ -5,7 +5,11 @@ const GET_INVOICES = async (req, res) => {
   const { from, to } = req.query;
 
   try {
-    const response = await model.GET_INVOICES({ from, to, req });
+    const response = await model.GET_INVOICES({
+      from,
+      to,
+      showNoe: req.locals.showNoe,
+    });
 
     res.status(200).json(response);
   } catch (error) {
@@ -18,12 +22,16 @@ const GET_SALES = async (req, res) => {
   const { from, to } = req.query;
 
   try {
-    const sales_report = await model.GET_SALES_QUERY({ from, to, req });
+    const sales_report = await model.GET_SALES_QUERY({
+      from,
+      to,
+      showNoe: req.locals.showNoe,
+    });
 
     const group_sales_chart_data = await model.GET_BY_GROUP_QUERY({
       from,
       to,
-      req,
+      showNoe: req.locals.showNoe,
     });
 
     const response = {
@@ -42,7 +50,7 @@ const GET_SALES_BY_CATEGORY = async (req, res) => {
   const { categoryId } = req.params;
   try {
     const sales_by_category_report = await model.GET_SALES_BY_CATEGORY({
-      req,
+      showNoe: req.locals.showNoe,
       from,
       to,
       categoryId,
@@ -66,23 +74,23 @@ const GET_BY_GROUP = async (req, res) => {
       .select(
         "grupos.Descripcion as categoria",
         knex.raw(
-          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as rawProfit`,
         ),
         knex.raw(
-          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`
-        )
+          `ROUND(SUM((${slaveTable}.Precio - ${slaveTable}.Costo) * ${slaveTable}.Cantidad), 2) as netProfit`,
+        ),
       )
       .from(slaveTable)
       .innerJoin(masterTable, function () {
         this.on(
           `${masterTable}.${idInvoice}`,
-          `${slaveTable}.${idInvoice}`
+          `${slaveTable}.${idInvoice}`,
         ).andOn(`${masterTable}.Anulada`, 0);
       })
       .innerJoin(
         "productos",
         "productos.IdProducto",
-        `${slaveTable}.IdProducto`
+        `${slaveTable}.IdProducto`,
       )
       .innerJoin("grupos", "grupos.idGrupo", "productos.Grupo")
       .whereBetween(`${masterTable}.Fecha`, [from, to])
