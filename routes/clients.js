@@ -11,4 +11,9 @@ router
   .route("/average/month/:clientId")
   .get(showNoe, controller.MONTHLY_AVERAGE);
 
+router.route("/:clientId/sales").get(showNoe, controller.GET_CLIENT_SALES);
+router.route("/:clientId/summary").get(showNoe, controller.GET_CLIENT_SUMMARY);
+
+router.route("/list").get(showNoe, controller.GET_CLIENTS_LIST);
+
 module.exports = router;

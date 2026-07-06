@@ -162,9 +162,203 @@ const MONTHLY_AVERAGE = async (req, res) => {
   }
 };
 
+const GET_CLIENT_SALES = async (req, res) => {
+  const { clientId } = req.params;
+  const { from, to, page = 1, limit = 20 } = req.query;
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
+  const offset = (page - 1) * limit;
+
+  try {
+    const [{ count }] = await knex
+      .countDistinct({ count: `${masterTable}.${idInvoice}` })
+      .from(`${slaveTable}`)
+      .innerJoin(`${masterTable}`, function () {
+        this.on(
+          `${masterTable}.${idInvoice}`,
+          `${slaveTable}.${idInvoice}`
+        ).andOn(`${masterTable}.Anulada`, 0);
+      })
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
+      .andWhere(`${masterTable}.IdCliente`, clientId);
+
+    const data = await knex
+      .select(
+        "vendedores.Empresa as vendedor",
+        `${masterTable}.Fecha as fecha`,
+        knex.raw(
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as monto`
+        )
+      )
+      .from(`${slaveTable}`)
+      .innerJoin(`${masterTable}`, function () {
+        this.on(
+          `${masterTable}.${idInvoice}`,
+          `${slaveTable}.${idInvoice}`
+        ).andOn(`${masterTable}.Anulada`, 0);
+      })
+      .innerJoin("vendedores", "vendedores.IdVend", `${masterTable}.IdVend`)
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
+      .andWhere(`${masterTable}.IdCliente`, clientId)
+      .groupBy(`${masterTable}.${idInvoice}`)
+      .orderBy(`${masterTable}.Fecha`, "desc")
+      .limit(Number(limit))
+      .offset(Number(offset));
+
+    res.status(200).json({
+      data,
+      total: Number(count),
+      page: Number(page),
+      limit: Number(limit),
+    });
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+const GET_CLIENT_SUMMARY = async (req, res) => {
+  const { clientId } = req.params;
+  const { from, to } = req.query;
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
+
+  try {
+    const [aggregate] = await knex
+      .select(
+        knex.raw(
+          `ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2) as totalAmount`
+        ),
+        knex.raw(
+          `COUNT(DISTINCT ${masterTable}.${idInvoice}) as totalCount`
+        )
+      )
+      .from(`${slaveTable}`)
+      .innerJoin(`${masterTable}`, function () {
+        this.on(
+          `${masterTable}.${idInvoice}`,
+          `${slaveTable}.${idInvoice}`
+        ).andOn(`${masterTable}.Anulada`, 0);
+      })
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
+      .andWhere(`${masterTable}.IdCliente`, clientId);
+
+    const totalAmount = Number(aggregate.totalAmount) || 0;
+    const totalCount = Number(aggregate.totalCount) || 0;
+    const avgTicket =
+      totalCount > 0
+        ? Math.round((totalAmount / totalCount) * 100) / 100
+        : null;
+
+    // avgDaysBetweenSales using CTE + window function LAG()
+    const saleDatesQuery = knex
+      .distinct(`${masterTable}.Fecha as fecha`)
+      .from(`${slaveTable}`)
+      .innerJoin(`${masterTable}`, function () {
+        this.on(
+          `${masterTable}.${idInvoice}`,
+          `${slaveTable}.${idInvoice}`
+        ).andOn(`${masterTable}.Anulada`, 0);
+      })
+      .whereBetween(`${masterTable}.Fecha`, [from, to])
+      .andWhere(`${masterTable}.IdCliente`, clientId)
+      .orderBy(`${masterTable}.Fecha`, "asc");
+
+    const gapsQuery = knex
+      .select(
+        knex.raw(
+          "DATEDIFF(fecha, LAG(fecha) OVER (ORDER BY fecha)) as gap"
+        )
+      )
+      .from("sale_dates");
+
+    const [avgDaysResult] = await knex
+      .with("sale_dates", saleDatesQuery)
+      .with("gaps", gapsQuery)
+      .select(knex.raw("ROUND(AVG(gap), 1) as avgDaysBetweenSales"))
+      .from("gaps")
+      .whereNotNull("gap");
+
+    const avgDaysBetweenSales =
+      avgDaysResult && avgDaysResult.avgDaysBetweenSales != null
+        ? Number(avgDaysResult.avgDaysBetweenSales)
+        : null;
+
+    res.status(200).json({
+      totalAmount,
+      totalCount,
+      avgTicket,
+      avgDaysBetweenSales,
+    });
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+const GET_CLIENTS_LIST = async (req, res) => {
+  const { search, page = 1, limit = 20 } = req.query;
+  const { masterTable, slaveTable, idInvoice } = req.locals.showNoe;
+  const offset = (Number(page) - 1) * Number(limit);
+
+  try {
+    // Build data query with LEFT JOINs so clients with 0 sales still appear
+    const dataQuery = knex
+      .select(
+        "clientes.IdCliente",
+        "clientes.Empresa",
+        knex.raw(
+          `COALESCE(ROUND(SUM(${slaveTable}.Precio * ${slaveTable}.Cantidad), 2), 0) as total_ventas`
+        ),
+        knex.raw(
+          `COUNT(DISTINCT ${masterTable}.${idInvoice}) as num_ventas`
+        )
+      )
+      .from("clientes")
+      .leftJoin(masterTable, function () {
+        this.on("clientes.IdCliente", `${masterTable}.IdCliente`).andOn(
+          `${masterTable}.Anulada`,
+          0
+        );
+      })
+      .leftJoin(
+        slaveTable,
+        `${masterTable}.${idInvoice}`,
+        `${slaveTable}.${idInvoice}`
+      );
+
+    // Count query (from clientes directly with same search filter)
+    const countQuery = knex
+      .countDistinct({ total: "clientes.IdCliente" })
+      .from("clientes");
+
+    if (search) {
+      dataQuery.where("clientes.Empresa", "like", `%${search}%`);
+      countQuery.where("clientes.Empresa", "like", `%${search}%`);
+    }
+
+    const [{ total }] = await countQuery;
+
+    const data = await dataQuery
+      .groupBy("clientes.IdCliente")
+      .orderBy("total_ventas", "desc")
+      .limit(Number(limit))
+      .offset(Number(offset));
+
+    res.status(200).json({
+      data,
+      total: Number(total),
+      page: Number(page),
+      limit: Number(limit),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 module.exports = {
   GET_CLIENTS,
   GET_BEST_CLIENTS,
   GET_BEST_CLIENTS_PER_PRODUCT,
   MONTHLY_AVERAGE,
+  GET_CLIENT_SALES,
+  GET_CLIENT_SUMMARY,
+  GET_CLIENTS_LIST,
 };
