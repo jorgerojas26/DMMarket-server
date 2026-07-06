@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon index.js"
+    "start": "nodemon index.js",
+    "test": "jest"
   },
   "author": "",
   "license": "ISC",
@@ -16,6 +17,7 @@
     "pug": "^3.0.2"
   },
   "devDependencies": {
+    "jest": "^30.4.2",
     "nodemon": "^2.0.13"
   }
 }
