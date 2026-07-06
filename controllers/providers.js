@@ -260,6 +260,7 @@ const GET_PROVIDER_SALES = async (req, res) => {
 
     const data = await knex
       .select(
+        `${masterTable}.${idInvoice} as idFactura`,
         "vendedores.Empresa as vendedor",
         `${masterTable}.Fecha as fecha`,
         knex.raw(
@@ -376,6 +377,55 @@ const GET_PURCHASE_DETAIL = async (req, res) => {
   }
 };
 
+const GET_SALE_DETAIL = async (req, res) => {
+  const { providerId, invoiceId } = req.params;
+  const showNoeParam = req.query.showNoe === "true";
+  const { masterTable, slaveTable, idInvoice } = showNoeParam
+    ? { masterTable: "masternoe", slaveTable: "slavenoe", idInvoice: "IdNoe" }
+    : { masterTable: "masterfact", slaveTable: "slavefact", idInvoice: "IdFactura" };
+
+  try {
+    const [master] = await knex
+      .select(`${masterTable}.${idInvoice} as idFactura`, `${masterTable}.Fecha as fecha`, "vendedores.Empresa as vendedor")
+      .from(masterTable)
+      .leftJoin("vendedores", "vendedores.IdVend", `${masterTable}.IdVend`)
+      .where(`${masterTable}.${idInvoice}`, invoiceId)
+      .andWhere(`${masterTable}.Anulada`, 0);
+
+    if (!master) {
+      return res.status(404).json({ error: "Sale invoice not found" });
+    }
+
+    const productos = await knex
+      .select(
+        "productos.Descripcion as descripcion",
+        `${slaveTable}.Cantidad as cantidad`,
+        `${slaveTable}.Precio as precio`,
+        knex.raw(`ROUND(${slaveTable}.Cantidad * ${slaveTable}.Precio, 2) as subtotal`)
+      )
+      .from(slaveTable)
+      .innerJoin("productos", "productos.IdProducto", `${slaveTable}.IdProducto`)
+      .where(`${slaveTable}.${idInvoice}`, invoiceId)
+      .andWhere("productos.Proveedor", providerId);
+
+    const total = productos.reduce(
+      (sum, p) => sum + Number(p.subtotal || 0),
+      0
+    );
+
+    res.status(200).json({
+      idFactura: master.idFactura,
+      fecha: master.fecha,
+      vendedor: master.vendedor,
+      productos,
+      total: Math.round(total * 100) / 100,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 module.exports = {
   GET_PROVIDERS_LIST,
   GET_BEST_PROVIDERS,
@@ -383,4 +433,5 @@ module.exports = {
   GET_PROVIDER_SALES,
   GET_PROVIDER_PURCHASES,
   GET_PURCHASE_DETAIL,
+  GET_SALE_DETAIL,
 };
