@@ -17,7 +17,7 @@ const GET_SALE_PRODUCTS_BY_GROUP = async (req, res) => {
   const { groupId } = req.params;
 
   try {
-    const response = await GET_SALES_QUERY({ from, to, groupId, req });
+    const response = await GET_SALES_QUERY({ from, to, groupId, showNoe: req.locals.showNoe });
 
     res.status(200).json(response);
   } catch (error) {
